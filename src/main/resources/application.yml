@@ -1,0 +1,24 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: cache-stampede
+  cache:
+    type: redis
+    redis:
+      time-to-live: 10s
+      cache-null-values: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  datasource:
+    url: jdbc:mysql://localhost:3306/cache?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    password: password
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
