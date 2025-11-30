@@ -34,7 +34,8 @@ public class CacheStampedTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        for(Long target = 1L; target<101; target++){
+        Long target_size = 101L;
+        for(Long target = 1L; target<target_size; target++){
             targetId.add(target);
             mockMvc.perform(get("/item/{id}", target))
                     .andExpect(status().isOk());
@@ -67,11 +68,12 @@ public class CacheStampedTest {
         Assertions.assertThat(cacheMissCounter).isEqualTo(1);
     }
 
+
     @Test
     void 캐시_스탬프드_재현() throws Exception {
-        Thread.sleep(1200);
+        Thread.sleep(1000);
 
-        int requestsPerKey = 1; //1번 동시조회
+        int requestsPerKey = 10; //1번 동시조회
         int totalRequests = targetId.size() * requestsPerKey; // 총 100 요청
         ExecutorService pool = Executors.newFixedThreadPool(totalRequests);
 
@@ -110,9 +112,9 @@ public class CacheStampedTest {
 
     @Test
     void 캐시_스탬프드_개선_Jitter() throws Exception {
-        Thread.sleep(1200);
+        Thread.sleep(1000);
 
-        int requestsPerKey = 1; //1번 동시조회
+        int requestsPerKey = 10; //1번 동시조회
         int totalRequests = targetId.size() * requestsPerKey; // 총 100 요청
         ExecutorService pool = Executors.newFixedThreadPool(totalRequests);
 
@@ -147,5 +149,107 @@ public class CacheStampedTest {
         log.info("cache stamped count : {}", cacheMissCounter);
 
         Assertions.assertThat(cacheMissCounter).isGreaterThanOrEqualTo(3);
+    }
+
+    @Test
+    void 캐시_스탬피드_지속_재현() throws Exception {
+        int requestsPerKey = 1;          // 키당 동시 스레드 수
+        int durationSeconds = 60;         // 총 테스트 시간 (10초 동안 실행)
+        int totalThreads = targetId.size() * requestsPerKey;
+
+        ExecutorService pool = Executors.newFixedThreadPool(totalThreads);
+
+        CountDownLatch ready = new CountDownLatch(totalThreads);
+        CountDownLatch start = new CountDownLatch(1);
+
+        for (Long id : targetId) {
+            for (int i = 0; i < requestsPerKey; i++) {
+                pool.submit(() -> {
+                    try {
+                        ready.countDown();
+                        start.await();
+
+                        long endTime = System.currentTimeMillis() + (durationSeconds * 1000);
+
+                        while (System.currentTimeMillis() < endTime) {
+                            try {
+                                mockMvc.perform(get("/item/{id}", id))
+                                        .andExpect(status().isOk());
+
+                                // 1초 대기
+                                Thread.sleep(100);
+                            } catch (Exception e) {
+                                log.error("요청 중 에러", e);
+                            }
+                        }
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
+            }
+        }
+
+        // 동시에 시작
+        ready.await();
+        start.countDown();
+
+        pool.shutdown();
+        pool.awaitTermination(durationSeconds + 5, TimeUnit.SECONDS);
+
+        long cacheMissCounter = itemService.getCacheMissCounter();
+        log.info("cache stampede count : {}", cacheMissCounter);
+
+        Assertions.assertThat(cacheMissCounter).isGreaterThan(0);
+    }
+
+    @Test
+    void 캐시_스탬프드_지속_재현_Jitter() throws Exception {
+        int requestsPerKey = 1;          // 키당 동시 스레드 수
+        int durationSeconds = 60;         // 총 테스트 시간 (10초 동안 실행)
+        int totalThreads = targetId.size() * requestsPerKey;
+
+        ExecutorService pool = Executors.newFixedThreadPool(totalThreads);
+
+        CountDownLatch ready = new CountDownLatch(totalThreads);
+        CountDownLatch start = new CountDownLatch(1);
+
+        for (Long id : targetId) {
+            for (int i = 0; i < requestsPerKey; i++) {
+                pool.submit(() -> {
+                    try {
+                        ready.countDown();
+                        start.await();
+
+                        long endTime = System.currentTimeMillis() + (durationSeconds * 1000);
+
+                        while (System.currentTimeMillis() < endTime) {
+                            try {
+                                mockMvc.perform(get("/item/jitter/{id}", id))
+                                        .andExpect(status().isOk());
+
+                                // 1초 대기
+                                Thread.sleep(100);
+                            } catch (Exception e) {
+                                log.error("요청 중 에러", e);
+                            }
+                        }
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
+            }
+        }
+
+        // 동시에 시작
+        ready.await();
+        start.countDown();
+
+        pool.shutdown();
+        pool.awaitTermination(durationSeconds + 5, TimeUnit.SECONDS);
+
+        long cacheMissCounter = itemService.getCacheMissCounter();
+        log.info("cache stampede count : {}", cacheMissCounter);
+
+        Assertions.assertThat(cacheMissCounter).isGreaterThan(0);
     }
 }
