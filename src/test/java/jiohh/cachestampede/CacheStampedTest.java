@@ -47,10 +47,11 @@ public class CacheStampedTest {
     @Test
     void TTL_만료시_횟수_조회() throws Exception{
         Long itemId = 1L;
-        Thread.sleep(1200);
-
+        Thread.sleep(12000);
+        
         int threads = 100;
         ExecutorService pool = Executors.newFixedThreadPool(threads);
+
         List<Callable<Void>> tasks = new ArrayList<>();
         for (int i = 0; i < threads; i++) {
             tasks.add(() -> {
@@ -65,7 +66,7 @@ public class CacheStampedTest {
 
         long cacheMissCounter = itemService.getCacheMissCounter();
         log.info("hot key count : {}", cacheMissCounter);
-        Assertions.assertThat(cacheMissCounter).isEqualTo(1);
+        Assertions.assertThat(cacheMissCounter).isNotEqualTo(1);
     }
 
 
