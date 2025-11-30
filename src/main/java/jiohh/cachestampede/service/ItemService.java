@@ -41,7 +41,7 @@ public class ItemService {
         Item item = itemRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("아이템이 없습니다."));
         cacheMissCounter.incrementAndGet(); //캐시 미스 발생시에만 증가
-        Duration ttl = jitter(Duration.ofSeconds(10), Duration.ofSeconds(2));
+        Duration ttl = jitter(Duration.ofSeconds(8), Duration.ofSeconds(4));
         redisTemplate.opsForValue().set(key,item,ttl);
         return item;
     }

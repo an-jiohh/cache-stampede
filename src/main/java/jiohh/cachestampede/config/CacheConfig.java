@@ -23,17 +23,29 @@ import java.util.Map;
 @Configuration
 @EnableCaching
 public class CacheConfig {
-    //커스터마이징
-    // Bean을 추가하면, TTL, 직렬화방식, 캐시 이름별 설정등을 세밀하게 조절
+
     @Bean
-    public RedisCacheManager redisCacheManager(RedisConnectionFactory connectionFactory, ObjectMapper om){
+    public RedisCacheManager redisCacheManager(RedisConnectionFactory connectionFactory) {
+
+        // 1) Item 전용 value serializer
+        Jackson2JsonRedisSerializer<Item> itemSerializer =
+                new Jackson2JsonRedisSerializer<>(Item.class);
+
+        RedisCacheConfiguration itemCacheConfig =
+                RedisCacheConfiguration.defaultCacheConfig()
+                        .serializeValuesWith(
+                                RedisSerializationContext.SerializationPair.fromSerializer(itemSerializer)
+                        )
+                        .entryTtl(Duration.ofSeconds(10));
+
+        // 2) 다른 캐시들은 기본 설정 쓰고
+        RedisCacheConfiguration defaultConfig =
+                RedisCacheConfiguration.defaultCacheConfig();
+
+        // 3) "item" 캐시에만 위 config 적용
         return RedisCacheManager.builder(connectionFactory)
-                .cacheDefaults(
-                        RedisCacheConfiguration.defaultCacheConfig()
-                                .entryTtl(Duration.ofSeconds(1))
-                                .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
-                                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer(om)))
-                )
+                .cacheDefaults(defaultConfig)
+                .withCacheConfiguration("item", itemCacheConfig) // @Cacheable(value="item") 이랑 연결
                 .build();
     }
 
