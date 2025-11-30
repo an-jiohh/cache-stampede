@@ -25,8 +25,6 @@ public class ItemService {
 
     @Cacheable(value = "item", key = "#id")
     public Item getItem(Long id){
-        Optional<Item> byId = itemRepository.findById(id);
-//        log.info("캐시미스");
         cacheMissCounter.incrementAndGet(); //캐시 미스 발생시에만 증가
         return itemRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("아이템이 없습니다."));
