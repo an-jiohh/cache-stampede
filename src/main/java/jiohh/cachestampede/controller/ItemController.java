@@ -26,6 +26,9 @@ public class ItemController {
         return itemService.getItemByJitter(id);
     }
 
+    @GetMapping("/hotSafe/{id}")
+    public Item getItemHotKey(@PathVariable Long id) {return itemService.getItemByLock(id);}
+
     @GetMapping("/stats")
     public Map<String, Object> stats(){
         return Map.of("hits", itemService.getCacheMissCounter(),"ts", System.currentTimeMillis());

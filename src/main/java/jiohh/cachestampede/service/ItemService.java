@@ -4,14 +4,18 @@ import jiohh.cachestampede.model.Item;
 import jiohh.cachestampede.repostiory.ItemRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
@@ -22,6 +26,8 @@ public class ItemService {
     private final ItemRepository itemRepository;
     private final AtomicLong cacheMissCounter = new AtomicLong();
     private final RedisTemplate<String, Item> redisTemplate;
+    private final CacheManager cacheManager;
+    private final RedissonClient redissonClient;
 
     @Cacheable(value = "item", key = "#id")
     public Item getItem(Long id){
@@ -42,6 +48,47 @@ public class ItemService {
         Duration ttl = jitter(Duration.ofSeconds(8), Duration.ofSeconds(4));
         redisTemplate.opsForValue().set(key,item,ttl);
         return item;
+    }
+
+    public Item getItemByLock(Long id){
+        Cache cache = cacheManager.getCache("item");
+
+        Item cached = cache.get(id, Item.class);
+        if (cached != null){
+            return cached;
+        }
+
+        String lockeKey = "lock:item:" + id;
+        RLock lock = redissonClient.getLock(lockeKey);
+
+        boolean locked = false;
+        try {
+            locked = lock.tryLock(500, TimeUnit.MILLISECONDS);
+            if (!locked) {
+                Thread.sleep(50); // 락 미획득시 조금 쉬었다가 캐시만 다시 확인
+                Item fallback = cache.get(id, Item.class);
+                return fallback;
+            }
+            Item cachedAgain = cache.get(id, Item.class);
+            if (cachedAgain != null){
+                return cachedAgain;
+            }
+            cacheMissCounter.incrementAndGet();
+            Item item = itemRepository.findById(id)
+                    .orElseThrow(() -> new IllegalArgumentException("아이템이 없습니다. id=" + id));
+            cache.put(id, item);
+            return item;
+        } catch (IllegalMonitorStateException e){
+            log.warn("Lock already released");
+            throw new RuntimeException(e);
+        }  catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        } finally {
+            if(locked && lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
+        }
     }
 
     @CachePut(value = "item", key = "#result.id")
