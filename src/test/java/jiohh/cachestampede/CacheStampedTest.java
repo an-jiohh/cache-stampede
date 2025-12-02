@@ -46,16 +46,15 @@ public class CacheStampedTest {
 
     @Test
     void TTL_만료시_횟수_조회() throws Exception{
-        Long itemId = 1L;
         Thread.sleep(12000);
         
         int threads = 100;
         ExecutorService pool = Executors.newFixedThreadPool(threads);
 
         List<Callable<Void>> tasks = new ArrayList<>();
-        for (int i = 0; i < threads; i++) {
+        for (Long id:targetId) {
             tasks.add(() -> {
-                mockMvc.perform(get("/item/{id}", itemId))
+                mockMvc.perform(get("/item/{id}", id))
                         .andExpect(status().isOk());
                 return null;
             });
