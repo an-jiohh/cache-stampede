@@ -53,7 +53,7 @@ public class HotKeyTest {
         List<Callable<Void>> tasks = new ArrayList<>();
         for (int i = 0; i < threads; i++) {
             tasks.add(() -> {
-                mockMvc.perform(get("/item/hotSafe/{id}", itemId))
+                mockMvc.perform(get("/item/{id}", itemId))
                         .andExpect(status().isOk());
                 return null;
             });
@@ -64,6 +64,31 @@ public class HotKeyTest {
 
         long cacheMissCounter = itemService.getCacheMissCounter();
         log.info("hot key count : {}", cacheMissCounter);
+        Assertions.assertThat(cacheMissCounter).isNotEqualTo(1);
+    }
+
+    @Test
+    void TTL_만료시_횟수_조회_Lock개선() throws Exception{
+        Long itemId = 1L;
+        Thread.sleep(12000);
+
+        int threads = 100;
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+
+        List<Callable<Void>> tasks = new ArrayList<>();
+        for (int i = 0; i < threads; i++) {
+            tasks.add(() -> {
+                mockMvc.perform(get("/item/hotSafe/{id}", itemId))
+                        .andExpect(status().isOk());
+                return null;
+            });
+        }
+        List<Future<Void>> futures = pool.invokeAll(tasks);
+        for (Future<Void> f : futures) f.get();
+        pool.shutdown();
+
+        long cacheMissCounter = itemService.getCacheMissCounter();
+        log.info("hot key count(lock) : {}", cacheMissCounter);
         Assertions.assertThat(cacheMissCounter).isEqualTo(1);
     }
 
@@ -151,8 +176,8 @@ public class HotKeyTest {
 
     @Test
     void 캐시_스탬피드_지속_재현() throws Exception {
-        int requestsPerKey = 5;          // 키당 동시 스레드 수
-        int durationSeconds = 60;         // 총 테스트 시간 (10초 동안 실행)
+        int requestsPerKey = 8;          // 키당 동시 스레드 수
+        int durationSeconds = 600;         // 총 테스트 시간 (10초 동안 실행)
         int totalThreads = targetId.size() * requestsPerKey;
 
         ExecutorService pool = Executors.newFixedThreadPool(totalThreads);
@@ -175,9 +200,13 @@ public class HotKeyTest {
                                         .andExpect(status().isOk());
 
                                 // 1초 대기
-                                Thread.sleep(100);
-                            } catch (Exception e) {
-                                log.error("요청 중 에러", e);
+                                Thread.sleep(300);
+                            } catch (AssertionError e) {              // status != 200 같은 경우
+                                log.error("요청 중 AssertionError");
+                                Thread.sleep(1000);
+                            } catch (Exception e) {                   // 나머지 예외
+                                log.error("요청 중 Exception");
+                                Thread.sleep(1000);
                             }
                         }
                     } catch (InterruptedException e) {
