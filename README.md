@@ -1,10 +1,13 @@
 # 캐시에서 발생할 수 있는 문제를 알아보자
 
+<img width="9100" height="4556" alt="cache_stampede" src="https://github.com/user-attachments/assets/f563e35b-857a-481a-b77a-9485ae84a3f5" />
+
+
 ## 프로젝트 소개
 
 캐시 사용 시 발생할 수 있는 **캐시 스탬피드(Cache Stampede)** 와 **핫키(Hot Key)** 문제를 시연하고, 이에 대한 해결책을 비교 테스트하기 위한 프로젝트입니다.  
 
-다양한 캐시 조회 전략을 API로 제공구현하여 이를 `Junit` `k6`를 이용한 부하 테스트와 `Prometheus`, `Grafana`를 통한 실시간 모니터링 환경을 통해 각 전략의 성능과 효과를 직관적으로 확인할 수 있습니다.
+다양한 캐시 조회 전략을 기준으로 API로 구현하였고 이를 `Junit` `k6`를 이용한 부하 테스트와 `Prometheus`, `Grafana`를 통한 실시간 모니터링 환경을 통해 각 전략의 성능과 효과를 직관적으로 확인할 수 있도록 구성하였습니다.  
 
 [Redis에게 캐시 잘 먹이는 방법 – 캐시 스탬피드와 핫키](https://an-jiohh.github.io/blog/Backendcache_stampede)
 
